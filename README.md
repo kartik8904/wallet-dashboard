@@ -278,6 +278,8 @@ In frontend/.env change REACT_APP_API_URL to http://localhost:8000/api
 
 ### Dashboard Dark Mode
 ![Dark Mode](screenshots/darkmode.png)
+![Dark Mode](screenshots/darkmode2.png)
+
 
 ### Add Transaction Modal
 ![Add Transaction](screenshots/add-transaction.png)
