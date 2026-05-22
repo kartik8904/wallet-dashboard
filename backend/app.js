@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { errorHandler } = require('./src/middleware/errorHandler');
+const walletRoutes = require('./src/routes/wallet');
+const transactionRoutes = require('./src/routes/transactions');
 
 const app = express();
 
@@ -17,6 +19,9 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server is running' });
 });
+
+app.use('/api/wallet', walletRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 app.use(errorHandler);
 
