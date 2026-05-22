@@ -1,4 +1,4 @@
-# 💰 Wallet Management Dashboard
+# Wallet Management Dashboard
 
 A full-stack personal finance dashboard built with React.js and Node.js/Express. Manage your wallet — add money, spend money, track every transaction, and always know your exact balance in real time.
 
