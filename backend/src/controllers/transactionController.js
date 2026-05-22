@@ -79,29 +79,31 @@ const editTransaction = (req, res, next) => {
     const { type, amount, currency, description, status } = req.body;
 
     const transactions = store.getTransactions(userId);
-    const index = transactions.findIndex(t => t.id === id);
+    const oldTransaction = transactions.find(t => t.id === id);
 
-    if (index === -1) {
+    if (!oldTransaction) {
       return next(createError('not_found', 'Transaction not found'));
     }
 
-    const currentBalance = calculateBalance(transactions);
-    const oldTransaction = transactions[index];
+    // Step 1 — calculate balance without the old transaction
+    // We temporarily remove the old transaction from the list
+    // and calculate what the balance would be without it
+    const transactionsWithoutOld = transactions.filter(t => t.id !== id);
+    const balanceWithoutOld = calculateBalance(transactionsWithoutOld);
 
-    let balanceWithoutOld = currentBalance;
-    if (oldTransaction.type === 'credit' && oldTransaction.status === 'completed') {
-      balanceWithoutOld -= oldTransaction.amount;
-    } else if (oldTransaction.type === 'debit' && oldTransaction.status === 'completed') {
-      balanceWithoutOld += oldTransaction.amount;
-    }
-
-    if (type === 'debit' && status === 'completed' && parseFloat(amount) > balanceWithoutOld) {
+    // Step 2 — check if the new transaction is a debit that exceeds available balance
+    if (
+      type === 'debit' &&
+      status === 'completed' &&
+      parseFloat(amount) > balanceWithoutOld
+    ) {
       return next(createError(
         'insufficient_balance',
-        `Insufficient balance. Available balance is ₹${balanceWithoutOld} but you tried to debit ₹${amount}`
+        `Insufficient balance. Available balance after removing this transaction is ₹${balanceWithoutOld} but you tried to debit ₹${amount}`
       ));
     }
 
+    // Step 3 — save the updated transaction
     const updatedTransaction = {
       ...oldTransaction,
       type,
