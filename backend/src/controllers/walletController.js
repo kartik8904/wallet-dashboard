@@ -2,18 +2,18 @@ const store = require('../store/db');
 const { calculateBalance, calculateTotalCredits, calculateTotalDebits } = require('../utils/balance');
 
 const getWallet = (req, res) => {
-  const balance = calculateBalance(store.transactions);
-  const totalCredits = calculateTotalCredits(store.transactions);
-  const totalDebits = calculateTotalDebits(store.transactions);
+  const userId = req.user.id;
+  const transactions = store.getTransactions(userId);
+  const wallet = store.getWallet(userId);
 
   res.json({
     success: true,
     data: {
-      ...store.wallet,
-      balance,
-      totalCredits,
-      totalDebits,
-      totalTransactions: store.transactions.length,
+      ...wallet,
+      balance: calculateBalance(transactions),
+      totalCredits: calculateTotalCredits(transactions),
+      totalDebits: calculateTotalDebits(transactions),
+      totalTransactions: transactions.length,
       currency: 'INR',
       symbol: '₹'
     }

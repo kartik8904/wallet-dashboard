@@ -4,27 +4,19 @@ const { calculateBalance } = require('../utils/balance');
 const { createError } = require('../middleware/errorHandler');
 
 const getAllTransactions = (req, res) => {
+  const userId = req.user.id;
   const { search, type, status, currency, page = 1, limit = 10 } = req.query;
 
-  let transactions = [...store.transactions];
+  let transactions = [...store.getTransactions(userId)];
 
   if (search) {
     transactions = transactions.filter(t =>
       t.description.toLowerCase().includes(search.toLowerCase())
     );
   }
-
-  if (type) {
-    transactions = transactions.filter(t => t.type === type);
-  }
-
-  if (status) {
-    transactions = transactions.filter(t => t.status === status);
-  }
-
-  if (currency) {
-    transactions = transactions.filter(t => t.currency === currency);
-  }
+  if (type) transactions = transactions.filter(t => t.type === type);
+  if (status) transactions = transactions.filter(t => t.status === status);
+  if (currency) transactions = transactions.filter(t => t.currency === currency);
 
   transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -46,11 +38,11 @@ const getAllTransactions = (req, res) => {
 
 const addTransaction = (req, res, next) => {
   try {
+    const userId = req.user.id;
     const { type, amount, currency, description, status } = req.body;
+    const currentBalance = calculateBalance(store.getTransactions(userId));
 
-    const currentBalance = calculateBalance(store.transactions);
-
-    if (type === 'debit' && status === 'completed' && amount > currentBalance) {
+    if (type === 'debit' && status === 'completed' && parseFloat(amount) > currentBalance) {
       return next(createError(
         'insufficient_balance',
         `Insufficient balance. Your current balance is ₹${currentBalance} but you tried to debit ₹${amount}`
@@ -68,7 +60,7 @@ const addTransaction = (req, res, next) => {
       updatedAt: new Date().toISOString()
     };
 
-    store.transactions.push(transaction);
+    store.addTransaction(userId, transaction);
 
     res.status(201).json({
       success: true,
@@ -82,17 +74,19 @@ const addTransaction = (req, res, next) => {
 
 const editTransaction = (req, res, next) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
     const { type, amount, currency, description, status } = req.body;
 
-    const index = store.transactions.findIndex(t => t.id === id);
+    const transactions = store.getTransactions(userId);
+    const index = transactions.findIndex(t => t.id === id);
 
     if (index === -1) {
       return next(createError('not_found', 'Transaction not found'));
     }
 
-    const currentBalance = calculateBalance(store.transactions);
-    const oldTransaction = store.transactions[index];
+    const currentBalance = calculateBalance(transactions);
+    const oldTransaction = transactions[index];
 
     let balanceWithoutOld = currentBalance;
     if (oldTransaction.type === 'credit' && oldTransaction.status === 'completed') {
@@ -101,15 +95,15 @@ const editTransaction = (req, res, next) => {
       balanceWithoutOld += oldTransaction.amount;
     }
 
-    if (type === 'debit' && status === 'completed' && amount > balanceWithoutOld) {
+    if (type === 'debit' && status === 'completed' && parseFloat(amount) > balanceWithoutOld) {
       return next(createError(
         'insufficient_balance',
         `Insufficient balance. Available balance is ₹${balanceWithoutOld} but you tried to debit ₹${amount}`
       ));
     }
 
-    store.transactions[index] = {
-      ...store.transactions[index],
+    const updatedTransaction = {
+      ...oldTransaction,
       type,
       amount: parseFloat(amount),
       currency: currency || 'INR',
@@ -118,10 +112,12 @@ const editTransaction = (req, res, next) => {
       updatedAt: new Date().toISOString()
     };
 
+    store.updateTransaction(userId, id, updatedTransaction);
+
     res.json({
       success: true,
       message: 'Transaction updated successfully',
-      data: store.transactions[index]
+      data: updatedTransaction
     });
   } catch (err) {
     next(err);
@@ -130,14 +126,16 @@ const editTransaction = (req, res, next) => {
 
 const deleteTransaction = (req, res, next) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
-    const index = store.transactions.findIndex(t => t.id === id);
+    const transactions = store.getTransactions(userId);
+    const exists = transactions.find(t => t.id === id);
 
-    if (index === -1) {
+    if (!exists) {
       return next(createError('not_found', 'Transaction not found'));
     }
 
-    store.transactions.splice(index, 1);
+    store.deleteTransaction(userId, id);
 
     res.json({
       success: true,
